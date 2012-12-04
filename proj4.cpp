@@ -34,20 +34,18 @@ GLint viewport_height = VIEWPORT_DEFAULT;
 static const double MAX_COORD = 1.0;
 static const double MIN_COORD = -1.0;
 static const int INITIAL_NUM_SITES = 32;
-static const int MAX_NUM_SITES = 4096;
+static const int MAX_NUM_SITES = 65536;
 int currentNumSites = 32;
 // File to use for color lookup
 string colorFile = "input.ppm";
 // Whether or not to animate
 bool animate = false;
+// Whether or not sites are visible
+bool sitesVisible = true;
+// Coloring mode
+bool useTextureColor = false;
 // Vector of sites
 vector<Site> sites;
-
-void toggleAnimation()
-{
-	animate = !animate;
-	glutPostRedisplay();
-}
 
 // Generate MAX_NUM_SITES between (-1, -1) and (1, 1) with z values between 0 and 1
 void generateSites()
@@ -61,11 +59,52 @@ void generateSites()
 	}
 }
 
-GLuint draw_scene()
+// Double the number of sites, up to MAX_NUM_SITES
+void doubleSites()
 {
+	if (currentNumSites < MAX_NUM_SITES)
+	{
+		currentNumSites *= 2;
+	}
+	glutPostRedisplay();
 }
 
-// Draw callback: clear window, set up matrices, draw all cubes
+// Show or hide the sites
+void toggleSiteVisibility()
+{
+	sitesVisible = !sitesVisible;
+	glutPostRedisplay();
+}
+
+// Reset
+void resetEverything()
+{
+	currentNumSites = INITIAL_NUM_SITES;
+	animate = false;
+	sitesVisible = true;
+	useTextureColor = false;
+}
+
+GLuint draw_sites()
+{
+	glBegin(GL_POINTS);
+		for (int i = 0; i < currentNumSites; ++i)
+		{
+			glColor3f(1.0f,1.0f,1.0f);
+			glVertex3f(sites[i].x, sites[i].y, sites[i].z);
+		}
+	glEnd();
+}
+
+GLuint draw_scene()
+{
+	if (sitesVisible)
+	{
+		draw_sites();
+	}
+}
+
+// Draw callback
 void draw()
 {
 	// Set the projection matrix
@@ -82,7 +121,7 @@ void draw()
 	// Clear the color buffers
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// Draw; smooth shading is the default (use glShadeModel to change)
+	// Draw
 	draw_scene();
 
 	// Flush the pipeline
@@ -117,10 +156,10 @@ void menu(int value)
 	switch (value)
 	{
 		case MENU_ADD_SITES:
-			cout << "Add sites" << endl;
+			doubleSites();
 			break;
 		case MENU_TOGGLE_SITES_VISIBLE:
-			cout << "Toggle site visibility" << endl;
+			toggleSiteVisibility();
 			break;
 		case MENU_TOGGLE_ANIMATE:
 			cout << "Toggle animation" << endl;
@@ -130,6 +169,7 @@ void menu(int value)
 			break;
 		case MENU_RESET:
 			cout << "Reset" << endl;
+			resetEverything();
 			break;
 		default:
 			break;
@@ -203,11 +243,13 @@ void init_opengl()
 	// Automatically scale normals to unit length after transformation
 	glEnable(GL_NORMALIZE);
 
-	// Clear to BLACK
+	// Set background color
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
+
+	//glPointSize(2.0f);
 }
 
 GLint main(GLint argc, char *argv[])
