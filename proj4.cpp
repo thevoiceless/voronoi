@@ -12,7 +12,7 @@
 #include <GL/glu.h>
 #include <GL/glut.h>
 
-#include "Site.h"
+#include "Point.h"
 
 using namespace std;
 
@@ -29,13 +29,14 @@ GLint windowID;
 // Viewport dimensions; change when window is resized (via resize callback)
 GLint viewport_width = VIEWPORT_DEFAULT;
 GLint viewport_height = VIEWPORT_DEFAULT;
-
-// Number of sites
+// Variables for sites
 static const double MAX_COORD = 1.0;
 static const double MIN_COORD = -1.0;
 static const int INITIAL_NUM_SITES = 32;
 static const int MAX_NUM_SITES = 65536;
 int currentNumSites = 32;
+static const double ONE_THIRD = 1.0 / 3.0;
+static const int NUM_TRIANGLES_IN_CONE = 8;
 // File to use for color lookup
 string colorFile = "input.ppm";
 // Whether or not to animate
@@ -45,17 +46,26 @@ bool sitesVisible = true;
 // Coloring mode
 bool useTextureColor = false;
 // Vector of sites
-vector<Site> sites;
+vector<Point> sites;
+// Vector of points for the cone
+vector<Point> cone;
 
-// Generate MAX_NUM_SITES between (-1, -1) and (1, 1) with z values between 0 and 1
+double toRadians(double d)
+{
+	return (d * (M_PI / 180.0));
+}
+
+// Generate MAX_NUM_SITES between (-1, -1) and (1, 1)
 void generateSites()
 {
 	for (int i = 0; i < MAX_NUM_SITES; ++i)
 	{
 		double x = (MAX_COORD - MIN_COORD) * ((double) rand() / (double) RAND_MAX) + MIN_COORD;
 		double y = (MAX_COORD - MIN_COORD) * ((double) rand() / (double) RAND_MAX) + MIN_COORD;
-		double z = ((double) rand() / (double) RAND_MAX);
-		sites.push_back(Site(x, y, z));
+		// z values between 0 and 1
+		//double z = ((double) rand() / (double) RAND_MAX);
+		double z = 0;
+		sites.push_back(Point(x, y, z, 1));
 	}
 }
 
@@ -85,12 +95,30 @@ void resetEverything()
 	useTextureColor = false;
 }
 
+// Generate cone with point at (0, 0, 0) expanding out to infinity
+void generateCone()
+{
+	cone.push_back(Point(0, 0, 0, 1));
+
+	// For t triangles in a cone, n will go from 0 through t-1
+	int n = NUM_TRIANGLES_IN_CONE - 1;
+	double k = TWOPI / (double) n;
+	for (int i = 0; i <= n; ++i)
+	{
+		cone.push_back(Point(sin(toRadians(i * k)), cos(toRadians(i * k)), ONE_THIRD, 0));
+	}
+	// Repeat first vertex from the loop to close the circle
+	cone.push_back(Point(sin(toRadians(0)), cos(toRadians(0)), ONE_THIRD, 0));
+
+	cout << "Number of cone vertices: " << cone.size() << endl;
+}
+
 GLuint draw_sites()
 {
 	glBegin(GL_POINTS);
 		for (int i = 0; i < currentNumSites; ++i)
 		{
-			glColor3f(1.0f,1.0f,1.0f);
+			glColor3f(1.0,1.0,1.0);
 			glVertex3f(sites[i].x, sites[i].y, sites[i].z);
 		}
 	glEnd();
@@ -168,7 +196,6 @@ void menu(int value)
 			cout << "Toggle coloring" << endl;
 			break;
 		case MENU_RESET:
-			cout << "Reset" << endl;
 			resetEverything();
 			break;
 		default:
@@ -249,7 +276,7 @@ void init_opengl()
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 
-	//glPointSize(2.0f);
+	// glPointSize(2.0);
 }
 
 GLint main(GLint argc, char *argv[])
@@ -263,7 +290,10 @@ GLint main(GLint argc, char *argv[])
 	// Initialize random seed
 	srand(time(NULL));
 
+	// Generate the sites
 	generateSites();
+	// Generate the cone
+	generateCone();
 
 	// Initialize GLUT: register callbacks, etc.
 	windowID = init_glut(&argc, argv);
