@@ -4,11 +4,15 @@
 #include <iostream>
 #include <cmath>
 #include <string>
+#include <vector>
+#include <ctime>
 
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
+
+#include "Site.h"
 
 using namespace std;
 
@@ -26,15 +30,35 @@ GLint windowID;
 GLint viewport_width = VIEWPORT_DEFAULT;
 GLint viewport_height = VIEWPORT_DEFAULT;
 
+// Number of sites
+static const double MAX_COORD = 1.0;
+static const double MIN_COORD = -1.0;
+static const int INITIAL_NUM_SITES = 32;
+static const int MAX_NUM_SITES = 4096;
+int currentNumSites = 32;
 // File to use for color lookup
 string colorFile = "input.ppm";
 // Whether or not to animate
 bool animate = false;
+// Vector of sites
+vector<Site> sites;
 
 void toggleAnimation()
 {
 	animate = !animate;
 	glutPostRedisplay();
+}
+
+// Generate MAX_NUM_SITES between (-1, -1) and (1, 1) with z values between 0 and 1
+void generateSites()
+{
+	for (int i = 0; i < MAX_NUM_SITES; ++i)
+	{
+		double x = (MAX_COORD - MIN_COORD) * ((double) rand() / (double) RAND_MAX) + MIN_COORD;
+		double y = (MAX_COORD - MIN_COORD) * ((double) rand() / (double) RAND_MAX) + MIN_COORD;
+		double z = ((double) rand() / (double) RAND_MAX);
+		sites.push_back(Site(x, y, z));
+	}
 }
 
 GLuint draw_scene()
@@ -193,6 +217,11 @@ GLint main(GLint argc, char *argv[])
 	{
 		colorFile = argv[1];
 	}
+
+	// Initialize random seed
+	srand(time(NULL));
+
+	generateSites();
 
 	// Initialize GLUT: register callbacks, etc.
 	windowID = init_glut(&argc, argv);
