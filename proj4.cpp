@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <ctime>
+#include <fstream>
+#include <cassert>
 
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -13,6 +15,7 @@
 #include <GL/glut.h>
 
 #include "Point.h"
+#include "RGB.h"
 
 using namespace std;
 
@@ -39,6 +42,8 @@ static const double ONE_THIRD = 1.0 / 3.0;
 static const int NUM_TRIANGLES_IN_CONE = 200;
 // File to use for color lookup
 string colorFile = "input.ppm";
+int ppmResX, ppmResY;
+RGB* ppm;
 // Whether or not to animate
 bool animate = false;
 int t = 0;
@@ -56,6 +61,8 @@ vector<double> velocities;
 vector<Point> cone;
 // Vector of colors for the cones
 vector<Point> coneColors;
+// Vector of RGB for the texture colors
+vector<RGB> ppmColors;
 
 // Return a random color as a Point
 Point getRandomColor()
@@ -80,6 +87,7 @@ void generateSites()
 	}
 }
 
+// Generate a random velocity between -1 and 1 for each site
 void generateVelocities()
 {
 	for (int i = 0; i < MAX_NUM_SITES; ++i)
@@ -105,9 +113,16 @@ void toggleSiteVisibility()
 	glutPostRedisplay();
 }
 
+// Toggle animation
 void toggleAnimation()
 {
 	animate = !animate;
+}
+
+// Toggle color lookup between random and PPM
+void toggleColorFromTexture()
+{
+	useColorFromTexture = !useColorFromTexture;
 }
 
 // Reset
@@ -142,6 +157,68 @@ void generateConeColors()
 	for (int i = 0; i < MAX_NUM_SITES; ++i)
 	{
 		coneColors.push_back(getRandomColor());
+	}
+}
+
+// Load color information from PPM lookup file
+void loadPPM()
+{
+	// Open the texture file
+	ifstream inFile(colorFile.c_str(), ios::binary);
+	if (!inFile.is_open())
+	{
+	  cout << "Error reading from " << colorFile << endl;
+	  exit(1);
+	}
+	// Binary PPMs start with 'P6'
+	char c;
+	inFile >> c;
+	assert(c == 'P');
+	inFile >> c;
+	assert(c == '6');
+	inFile >> ppmResX >> ppmResY;
+	// All images we'll use have 255 color levels
+	int i;
+	inFile >> i;
+	assert(i == 255);
+	// Need to skip one more byte
+	inFile.get();
+	// Allocate space
+	ppm = new RGB[ppmResX * ppmResY];
+	inFile.read((char*) ppm, ppmResX * ppmResY * sizeof(RGB));
+	inFile.close();
+}
+
+void setColorsFromPPM()
+{
+	//Look up color for the cone of a site at (x, y)
+	for (int i = 0; i < MAX_NUM_SITES; ++i)
+	{
+		// Scale x and y from -1...1 to 0...resolution, flip y-axis orientation
+		double sx = ppmResX * (sites[i].x + 1) / 2;
+		double sy = ppmResY * (-sites[i].y + 1) / 2;
+		// Round to nearest integer
+		int ix = (int) floor(sx + 0.5);
+		int iy = (int) floor(sy + 0.5);
+		// Clamp to the range 0...(resolution-1)
+		if (ix < 0)
+		{
+			ix = 0;
+		}
+		if (ix >= ppmResX)
+		{
+			ix = ppmResX - 1;
+		}
+		if (iy < 0)
+		{
+			iy = 0;
+		}
+		if (iy >= ppmResY)
+		{
+			iy = ppmResY - 1;
+		}
+		// Color to be used: ppm[ix+iy*resolution_x]
+		ppmColors.push_back(ppm[ix + iy * ppmResX]);
 	}
 }
 
@@ -184,7 +261,7 @@ GLuint draw_cones()
 				{
 					if (useColorFromTexture)
 					{
-
+						glColor3ub(ppmColors[i].r, ppmColors[i].g, ppmColors[i].b);
 					}
 					else
 					{
@@ -255,6 +332,7 @@ void keyboard(GLubyte key, GLint x, GLint y)
 	{
 		// Exit when escape is pressed
 		case 27:
+			delete[] ppm;
 			exit(0);
 		case 'm':
 		case 'M':
@@ -277,6 +355,8 @@ void keyboard(GLubyte key, GLint x, GLint y)
 			break;
 		case 'c':
 		case 'C':
+			toggleColorFromTexture();
+			glutPostRedisplay();
 			break;
 		default:
 			break;
@@ -318,6 +398,8 @@ void menu(int value)
 			break;
 		case MENU_TOGGLE_COLORING:
 			cout << "Toggle coloring" << endl;
+			toggleColorFromTexture();
+			glutPostRedisplay();
 			break;
 		case MENU_RESET:
 			resetEverything();
@@ -429,6 +511,10 @@ GLint main(GLint argc, char *argv[])
 	generateCone();
 	// Gnerate the random cone colors
 	generateConeColors();
+	// Load PPM texture
+	loadPPM();
+	// Set colors based on texture
+	setColorsFromPPM();
 
 	// Initialize GLUT: register callbacks, etc.
 	windowID = init_glut(&argc, argv);
