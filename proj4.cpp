@@ -41,6 +41,7 @@ static const int NUM_TRIANGLES_IN_CONE = 200;
 string colorFile = "input.ppm";
 // Whether or not to animate
 bool animate = false;
+int t = 0;
 // Whether or not sites are visible
 bool sitesVisible = true;
 // Coloring mode
@@ -49,6 +50,8 @@ bool useColorFromTexture = false;
 bool mouseDown = false;
 // Vector of sites
 vector<Point> sites;
+// Vector of velocities for the sites
+vector<double> velocities;
 // Vector of points for the cone
 vector<Point> cone;
 // Vector of colors for the cones
@@ -77,6 +80,14 @@ void generateSites()
 	}
 }
 
+void generateVelocities()
+{
+	for (int i = 0; i < MAX_NUM_SITES; ++i)
+	{
+		velocities.push_back(2 * ((double) rand() / (double) RAND_MAX) - 1);
+	}
+}
+
 // Double the number of sites, up to MAX_NUM_SITES
 void doubleSites()
 {
@@ -94,6 +105,11 @@ void toggleSiteVisibility()
 	glutPostRedisplay();
 }
 
+void toggleAnimation()
+{
+	animate = !animate;
+}
+
 // Reset
 void resetEverything()
 {
@@ -101,6 +117,7 @@ void resetEverything()
 	animate = false;
 	sitesVisible = true;
 	useColorFromTexture = false;
+	t = 0;
 }
 
 // Generate cone with point at (0, 0, 0) expanding out to infinity
@@ -133,13 +150,17 @@ GLuint draw_sites()
 	// Disable depth test when drawing points so that they are always shown
 	// This is to handle possible numerical errors with the location of the cones' points
 	glDisable(GL_DEPTH_TEST);
-	glBegin(GL_POINTS);
-		for (int i = 0; i < currentNumSites; ++i)
-		{
-			glColor3f(0.0, 00.0, 0.0);
-			glVertex3f(sites[i].x, sites[i].y, sites[i].z);
-		}
-	glEnd();
+	for (int i = 0; i < currentNumSites; ++i)
+	{
+		glPushMatrix();
+			glLoadIdentity();
+			glRotatef(t * velocities[i], 0, 0, 1);
+			glBegin(GL_POINTS);
+				glColor3f(0.0, 00.0, 0.0);
+				glVertex3f(sites[i].x, sites[i].y, sites[i].z);
+			glEnd();
+		glPopMatrix();
+	}
 	// Re-enable depth test when finished
 	glEnable(GL_DEPTH_TEST);
 }
@@ -156,6 +177,7 @@ GLuint draw_cones()
 		// Clear each cone translation when finished
 		glPushMatrix();
 			glLoadIdentity();
+			glRotatef(t * velocities[i], 0, 0, 1);
 			glTranslatef(sites[i].x, sites[i].y, sites[i].z);
 			glBegin(GL_TRIANGLE_FAN);
 				for (int j = 0; j < cone.size(); ++j)
@@ -178,7 +200,10 @@ GLuint draw_cones()
 
 GLuint draw_scene()
 {
+	
+	
 	draw_cones();
+	
 	if (sitesVisible)
 	{
 		draw_sites();
@@ -196,6 +221,11 @@ void draw()
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
+	if (animate)
+	{
+		t++;
+	}
+
 	// Ensure we're drawing to the correct GLUT window
 	glutSetWindow(windowID);
 
@@ -210,6 +240,12 @@ void draw()
 
 	// Look at our handiwork
 	glutSwapBuffers();
+
+	// Make sure everything is redrawn in the animation mode
+	if (animate)
+	{
+		glutPostRedisplay();
+	}
 }
 
 // Handle keyboard events
@@ -236,6 +272,8 @@ void keyboard(GLubyte key, GLint x, GLint y)
 			break;
 		case 'a':
 		case 'A':
+			toggleAnimation();
+			glutPostRedisplay();
 			break;
 		case 'c':
 		case 'C':
@@ -275,7 +313,8 @@ void menu(int value)
 			toggleSiteVisibility();
 			break;
 		case MENU_TOGGLE_ANIMATE:
-			cout << "Toggle animation" << endl;
+			toggleAnimation();
+			glutPostRedisplay();
 			break;
 		case MENU_TOGGLE_COLORING:
 			cout << "Toggle coloring" << endl;
@@ -385,7 +424,7 @@ GLint main(GLint argc, char *argv[])
 	// Generate the sites
 	generateSites();
 	// Generate velocities
-
+	generateVelocities();
 	// Generate the cone
 	generateCone();
 	// Gnerate the random cone colors
