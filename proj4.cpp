@@ -220,6 +220,26 @@ void keyboard(GLubyte key, GLint x, GLint y)
 		// Exit when escape is pressed
 		case 27:
 			exit(0);
+		case 'm':
+		case 'M':
+			doubleSites();
+			glutPostRedisplay();
+			break;
+		case 'v':
+		case 'V':
+			toggleSiteVisibility();
+			break;
+		case 'r':
+		case 'R':
+			resetEverything();
+			glutPostRedisplay();
+			break;
+		case 'a':
+		case 'A':
+			break;
+		case 'c':
+		case 'C':
+			break;
 		default:
 			break;
 	}
