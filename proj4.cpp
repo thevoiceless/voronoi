@@ -23,10 +23,11 @@ using namespace std;
 static const int VIEWPORT_DEFAULT = 700;
 static const double TWOPI = (2.0 * M_PI);
 static const int MENU_ADD_SITES = 1;
-static const int MENU_TOGGLE_SITES_VISIBLE = 2;
-static const int MENU_TOGGLE_ANIMATE = 3;
-static const int MENU_TOGGLE_COLORING = 4;
-static const int MENU_RESET = 5;
+static const int MENU_REMOVE_SITES = 2;
+static const int MENU_TOGGLE_SITES_VISIBLE = 3;
+static const int MENU_TOGGLE_ANIMATE = 4;
+static const int MENU_TOGGLE_COLORING = 5;
+static const int MENU_RESET = 6;
 // GLUT window id; value asigned in main() and should stay constant
 GLint windowID;
 // Viewport dimensions; change when window is resized (via resize callback)
@@ -102,6 +103,16 @@ void doubleSites()
 	if (currentNumSites < MAX_NUM_SITES)
 	{
 		currentNumSites *= 2;
+		cout << currentNumSites << " sites" << endl;
+	}
+}
+
+// Halve the number of sites, down to ITITIAL_NUM_SITES
+void halveSites()
+{
+	if (currentNumSites > INITIAL_NUM_SITES)
+	{
+		currentNumSites /= 2;
 		cout << currentNumSites << " sites" << endl;
 	}
 }
@@ -277,13 +288,55 @@ GLuint draw_cones()
 
 GLuint draw_scene()
 {
-	
-	
-	draw_cones();
-	
-	if (sitesVisible)
+	// draw_cones();
+	// if (sitesVisible)
+	// {
+	// 	draw_sites();
+	// }
+
+	// Below is a combination of draw_cones() and draw_sites()
+	// Wraps everything in a single loop over the current number of sites
+	glMatrixMode(GL_MODELVIEW);
+	glPointSize(2.0);
+
+	for (int i = 0; i < currentNumSites; ++i)
 	{
-		draw_sites();
+		// Load identity
+		glLoadIdentity();
+		// Rotate according to velocity
+		glRotatef(t * velocities[i], 0, 0, 1);
+		// Translate the cone to the site
+		glTranslatef(sites[i].x, sites[i].y, sites[i].z);
+		// Draw the cone
+		glBegin(GL_TRIANGLE_FAN);
+			for (int j = 0; j < cone.size(); ++j)
+			{
+				// Look up colors from PPM
+				if (useColorFromTexture)
+				{
+					glColor3ub(ppmColors[i].r, ppmColors[i].g, ppmColors[i].b);
+				}
+				// Use randomly chosen colors
+				else
+				{
+					glColor3f(coneColors[i].x, coneColors[i].y, coneColors[i].z);
+				}
+				glVertex4f(cone[j].x, cone[j].y, cone[j].z, cone[j].homogenous);
+			}
+		glEnd();
+		// Draw the sites
+		if (sitesVisible)
+		{
+			// Load identity
+			glLoadIdentity();
+			// Rotate according to velocity
+			glRotatef(t * velocities[i], 0, 0, 1);
+			// Draw the site
+			glBegin(GL_POINTS);
+				glColor3f(0.0, 0.0, 0.0);
+				glVertex3f(sites[i].x, sites[i].y, sites[i].z);
+			glEnd();
+		}
 	}
 }
 
@@ -339,6 +392,11 @@ void keyboard(GLubyte key, GLint x, GLint y)
 			doubleSites();
 			glutPostRedisplay();
 			break;
+		case 'n':
+		case 'N':
+			halveSites();
+			glutPostRedisplay();
+			break;
 		case 'v':
 		case 'V':
 			toggleSiteVisibility();
@@ -363,23 +421,6 @@ void keyboard(GLubyte key, GLint x, GLint y)
 	}
 }
 
-void mouse_button(GLint btn, GLint state, GLint mouseX, GLint mouseY)
-{
-	return;
-}
-
-// Mouse moves with button down
-GLvoid button_motion(GLint mouseX, GLint mouseY)
-{
-	return;
-}
-
-// Mouse moves with button up
-GLvoid passive_motion(GLint mouseX, GLint mouseY)
-{
-	return;
-}
-
 // Menu callback
 void menu(int value)
 {
@@ -387,6 +428,10 @@ void menu(int value)
 	{
 		case MENU_ADD_SITES:
 			doubleSites();
+			glutPostRedisplay();
+			break;
+		case MENU_REMOVE_SITES:
+			halveSites();
 			glutPostRedisplay();
 			break;
 		case MENU_TOGGLE_SITES_VISIBLE:
@@ -397,7 +442,6 @@ void menu(int value)
 			glutPostRedisplay();
 			break;
 		case MENU_TOGGLE_COLORING:
-			cout << "Toggle coloring" << endl;
 			toggleColorFromTexture();
 			glutPostRedisplay();
 			break;
@@ -448,14 +492,6 @@ GLint init_glut(GLint *argc, char **argv)
 	// Keypress handling when the current window has input focus
 	glutKeyboardFunc(keyboard);
 
-	// Mouse event handling
-	// Button press/release
-	glutMouseFunc(mouse_button);
-	// Mouse motion with button down
-	glutMotionFunc(button_motion);
-	// Mouse motion with button up
-	glutPassiveMotionFunc(passive_motion);
-
 	// Window obscured/revealed event handler
 	glutVisibilityFunc(NULL);
 
@@ -468,6 +504,7 @@ GLint init_glut(GLint *argc, char **argv)
 	// Create menu
 	GLint mainMenu = glutCreateMenu(menu);
 	glutAddMenuEntry("Add more sites", MENU_ADD_SITES);
+	glutAddMenuEntry("Reduce number of sites", MENU_REMOVE_SITES);
 	glutAddMenuEntry("Toggle site visibility", MENU_TOGGLE_SITES_VISIBLE);
 	glutAddMenuEntry("Toggle animation", MENU_TOGGLE_ANIMATE);
 	glutAddMenuEntry("Toggle coloring method", MENU_TOGGLE_COLORING);
