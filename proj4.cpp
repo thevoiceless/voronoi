@@ -127,13 +127,21 @@ void toggleSiteVisibility()
 // Toggle animation
 void toggleAnimation()
 {
-	animate = !animate;
+	if (!useColorFromTexture)
+	{
+		animate = !animate;
+	}
 }
 
 // Toggle color lookup between random and PPM
 void toggleColorFromTexture()
 {
 	useColorFromTexture = !useColorFromTexture;
+	if (useColorFromTexture)
+	{
+		t = 0;
+		animate = false;
+	}
 }
 
 // Reset
