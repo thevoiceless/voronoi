@@ -17,7 +17,7 @@
 using namespace std;
 
 // OpenGL variables
-static const int VIEWPORT_DEFAULT = 800;
+static const int VIEWPORT_DEFAULT = 700;
 static const double TWOPI = (2.0 * M_PI);
 static const int MENU_ADD_SITES = 1;
 static const int MENU_TOGGLE_SITES_VISIBLE = 2;
@@ -36,7 +36,7 @@ static const int INITIAL_NUM_SITES = 32;
 static const int MAX_NUM_SITES = 65536;
 int currentNumSites = 32;
 static const double ONE_THIRD = 1.0 / 3.0;
-static const int NUM_TRIANGLES_IN_CONE = 8;
+static const int NUM_TRIANGLES_IN_CONE = 200;
 // File to use for color lookup
 string colorFile = "input.ppm";
 // Whether or not to animate
@@ -44,15 +44,23 @@ bool animate = false;
 // Whether or not sites are visible
 bool sitesVisible = true;
 // Coloring mode
-bool useTextureColor = false;
+bool useColorFromTexture = false;
+// Mouse down boolean
+bool mouseDown = false;
 // Vector of sites
 vector<Point> sites;
 // Vector of points for the cone
 vector<Point> cone;
+// Vector of colors for the cones
+vector<Point> coneColors;
 
-double toRadians(double d)
+// Return a random color as a Point
+Point getRandomColor()
 {
-	return (d * (M_PI / 180.0));
+	return Point(((double) rand() / (double) RAND_MAX),
+		((double) rand() / (double) RAND_MAX),
+		((double) rand() / (double) RAND_MAX),
+		0);
 }
 
 // Generate MAX_NUM_SITES between (-1, -1) and (1, 1)
@@ -75,8 +83,8 @@ void doubleSites()
 	if (currentNumSites < MAX_NUM_SITES)
 	{
 		currentNumSites *= 2;
+		cout << currentNumSites << " sites" << endl;
 	}
-	glutPostRedisplay();
 }
 
 // Show or hide the sites
@@ -92,36 +100,80 @@ void resetEverything()
 	currentNumSites = INITIAL_NUM_SITES;
 	animate = false;
 	sitesVisible = true;
-	useTextureColor = false;
+	useColorFromTexture = false;
 }
 
 // Generate cone with point at (0, 0, 0) expanding out to infinity
 void generateCone()
 {
+	// Tip of cone has homogenous coordinate of 1
 	cone.push_back(Point(0, 0, 0, 1));
 
-	// For t triangles in a cone, n will go from 0 through t-1
-	int n = NUM_TRIANGLES_IN_CONE - 1;
-	double k = TWOPI / (double) n;
-	for (int i = 0; i <= n; ++i)
+	double thetaStep = TWOPI / NUM_TRIANGLES_IN_CONE;
+	for (double i = 0; i < TWOPI - 0.5 * thetaStep; i += thetaStep)
 	{
-		cone.push_back(Point(sin(toRadians(i * k)), cos(toRadians(i * k)), ONE_THIRD, 0));
+		cone.push_back(Point(sin(i), cos(i), ONE_THIRD, 0));
 	}
-	// Repeat first vertex from the loop to close the circle
-	cone.push_back(Point(sin(toRadians(0)), cos(toRadians(0)), ONE_THIRD, 0));
 
-	cout << "Number of cone vertices: " << cone.size() << endl;
+	// Repeat first vertex from the loop to close the circle
+	cone.push_back(Point(sin(0), cos(0), ONE_THIRD, 0));
+}
+
+// Generate a random color for each cone
+void generateConeColors()
+{
+	for (int i = 0; i < MAX_NUM_SITES; ++i)
+	{
+		coneColors.push_back(getRandomColor());
+	}
 }
 
 GLuint draw_sites()
 {
+	// Disable depth test when drawing points so that they are always shown
+	// This is to handle possible numerical errors with the location of the cones' points
+	glDisable(GL_DEPTH_TEST);
 	glBegin(GL_POINTS);
 		for (int i = 0; i < currentNumSites; ++i)
 		{
-			glColor3f(1.0,1.0,1.0);
+			glColor3f(1.0, 1.0, 1.0);
 			glVertex3f(sites[i].x, sites[i].y, sites[i].z);
 		}
 	glEnd();
+	// Re-enable depth test when finished
+	glEnable(GL_DEPTH_TEST);
+}
+
+GLuint draw_cones()
+{
+	// Set the modelview matrix
+	glMatrixMode(GL_MODELVIEW);
+
+	glPointSize(2.0);
+	
+	for (int i = 0; i < currentNumSites; ++i)
+	{
+		// Clear each cone translation when finished
+		glPushMatrix();
+			glLoadIdentity();
+			glTranslatef(sites[i].x, sites[i].y, sites[i].z);
+			glBegin(GL_TRIANGLE_FAN);
+				for (int j = 0; j < cone.size(); ++j)
+				{
+					if (useColorFromTexture)
+					{
+
+					}
+					else
+					{
+						glColor3f(coneColors[i].x, coneColors[i].y, coneColors[i].z);
+					}
+					glVertex4f(cone[j].x, cone[j].y, cone[j].z, cone[j].homogenous);
+				}
+			glEnd();
+		glPopMatrix();
+	}
+	
 }
 
 GLuint draw_scene()
@@ -130,6 +182,7 @@ GLuint draw_scene()
 	{
 		draw_sites();
 	}
+	draw_cones();
 }
 
 // Draw callback
@@ -157,12 +210,6 @@ void draw()
 
 	// Look at our handiwork
 	glutSwapBuffers();
-
-	// Make sure everything is redrawn in the animation mode
-	if (animate)
-	{
-		glutPostRedisplay();
-	} 
 }
 
 // Handle keyboard events
@@ -178,6 +225,23 @@ void keyboard(GLubyte key, GLint x, GLint y)
 	}
 }
 
+void mouse_button(GLint btn, GLint state, GLint mouseX, GLint mouseY)
+{
+	return;
+}
+
+// Mouse moves with button down
+GLvoid button_motion(GLint mouseX, GLint mouseY)
+{
+	return;
+}
+
+// Mouse moves with button up
+GLvoid passive_motion(GLint mouseX, GLint mouseY)
+{
+	return;
+}
+
 // Menu callback
 void menu(int value)
 {
@@ -185,6 +249,7 @@ void menu(int value)
 	{
 		case MENU_ADD_SITES:
 			doubleSites();
+			glutPostRedisplay();
 			break;
 		case MENU_TOGGLE_SITES_VISIBLE:
 			toggleSiteVisibility();
@@ -197,6 +262,7 @@ void menu(int value)
 			break;
 		case MENU_RESET:
 			resetEverything();
+			glutPostRedisplay();
 			break;
 		default:
 			break;
@@ -241,6 +307,14 @@ GLint init_glut(GLint *argc, char **argv)
 	// Keypress handling when the current window has input focus
 	glutKeyboardFunc(keyboard);
 
+	// Mouse event handling
+	// Button press/release
+	glutMouseFunc(mouse_button);
+	// Mouse motion with button down
+	glutMotionFunc(button_motion);
+	// Mouse motion with button up
+	glutPassiveMotionFunc(passive_motion);
+
 	// Window obscured/revealed event handler
 	glutVisibilityFunc(NULL);
 
@@ -275,8 +349,6 @@ void init_opengl()
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
-
-	// glPointSize(2.0);
 }
 
 GLint main(GLint argc, char *argv[])
@@ -294,6 +366,8 @@ GLint main(GLint argc, char *argv[])
 	generateSites();
 	// Generate the cone
 	generateCone();
+	// Gnerate the random cone colors
+	generateConeColors();
 
 	// Initialize GLUT: register callbacks, etc.
 	windowID = init_glut(&argc, argv);
