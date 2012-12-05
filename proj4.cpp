@@ -136,7 +136,7 @@ GLuint draw_sites()
 	glBegin(GL_POINTS);
 		for (int i = 0; i < currentNumSites; ++i)
 		{
-			glColor3f(1.0, 1.0, 1.0);
+			glColor3f(0.0, 00.0, 0.0);
 			glVertex3f(sites[i].x, sites[i].y, sites[i].z);
 		}
 	glEnd();
@@ -178,11 +178,11 @@ GLuint draw_cones()
 
 GLuint draw_scene()
 {
+	draw_cones();
 	if (sitesVisible)
 	{
 		draw_sites();
 	}
-	draw_cones();
 }
 
 // Draw callback
@@ -312,7 +312,7 @@ GLint init_glut(GLint *argc, char **argv)
 
 	// Size and placement hints to the window system
 	glutInitWindowSize(viewport_width, viewport_height);
-	glutInitWindowPosition(10,10);
+	glutInitWindowPosition(10, 10);
 
 	// Double-buffered, RGB color mode
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
@@ -384,6 +384,8 @@ GLint main(GLint argc, char *argv[])
 
 	// Generate the sites
 	generateSites();
+	// Generate velocities
+
 	// Generate the cone
 	generateCone();
 	// Gnerate the random cone colors
